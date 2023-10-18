@@ -30,6 +30,18 @@ if uploaded_image is not None:
         "Mode": image.mode,
         "Resolution": f"{image.width} × {image.height}",
     }
+
+    custom_css = """
+        <style>
+            thead {
+                display: none;
+            }
+        </style>
+    """
+
+    # Display the custom CSS and the table
+    st.markdown(custom_css, unsafe_allow_html=True)
+
     st.header("Image Attribute")
     st.table(image_attrs)
 
