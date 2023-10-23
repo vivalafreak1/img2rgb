@@ -9,10 +9,49 @@ st.title("🌈 Image to RGB")
 
 uploaded_image = st.file_uploader("Upload an image", ["jpg", "jpeg", "png", "webp"])
 
+def rgb_to_hsl(rgb):
+    r, g, b = [x / 255.0 for x in rgb]
+    cmax = max(r, g, b)
+    cmin = min(r, g, b)
+    delta = cmax - cmin
+    
+    # Calculate hue
+    if delta == 0:
+        h = 0
+    elif cmax == r:
+        h = 60 * (((g - b) / delta) % 6)
+    elif cmax == g:
+        h = 60 * (((b - r) / delta) + 2)
+    else:
+        h = 60 * (((r - g) / delta) + 4)
+    
+    # Calculate lightness
+    l = (cmax + cmin) / 2
+    
+    # Calculate saturation
+    if delta == 0:
+        s = 0
+    else:
+        s = delta / (1 - abs(2 * l - 1))
+    
+    # Scale values to 0-255 range
+    h = int(round(h / 360 * 255))
+    s = int(round(s * 255))
+    l = int(round(l * 255))
+    
+    return h, s, l
+
 if uploaded_image is not None:
     _, centered_column, _ = st.columns(3)
     centered_column.image(uploaded_image, width=200)
 
+    # Get RGB values and coordinates from user input
+    x = st.slider("X Coordinate", 0, 255, 0)
+    y = st.slider("Y Coordinate", 0, 255, 0)
+    r = st.slider("Red", 0, 255, 0)
+    g = st.slider("Green", 0, 255, 0)
+    b = st.slider("Blue", 0, 255, 0)
+    
     image = Image.open(uploaded_image).convert("RGB")
 
     image_attrs = {
@@ -22,14 +61,30 @@ if uploaded_image is not None:
         "Resolution": f"{image.width} × {image.height}",
     }
 
+    custom_css = """
+        <style>
+            thead {
+                display: none;
+            }
+        </style>
+    """
+
+    # Display the custom CSS and the table
+    st.markdown(custom_css, unsafe_allow_html=True)
+
     st.table(image_attrs)
 
-    with st.spinner("Getting RGB value for each pixel..."):
+    with st.spinner("Getting RGB and HSL values for each pixel..."):
+        pixels = list(image.getdata())
         pixel_rgbs = [
             [image.getpixel((x, y)) for x in range(image.width)]
             for y in range(image.height)
         ]
-
+        pixel_hsls = [
+            [rgb_to_hsl(image.getpixel((x, y))) for x in range(image.width)]
+            for y in range(image.height)
+        ]
+    
     with st.spinner("Converting pixel data to DataFrame..."):
         df = DataFrame(pixel_rgbs)
         df.index += 1
@@ -37,11 +92,22 @@ if uploaded_image is not None:
         df.index.name = "Px"
 
     with st.spinner("Displaying pixel data..."):
-        st.subheader("Pixel Data")
+        st.subheader("RGB Pixel Data")
         st.dataframe(df)
         st.caption("Note: Each cell represents the RGB value of a pixel in the image.")
 
     st.divider()
+
+    with st.spinner("Displaying HSL value.."):
+        df_hsl = DataFrame(pixel_hsls)
+        df_hsl.index == 1
+        df_hsl.columns += 1
+        df_hsl.index.name = "Px"
+
+    with st.spinner("Displaying pixel data..."):
+        st.subheader("HSL Pixel Data")
+        st.dataframe(df_hsl)
+        st.caption("Note: Each cell represents the HSL value of a pixel in the image.")    
 
     n_channels = 4
     n_colors = 256
@@ -71,7 +137,6 @@ if uploaded_image is not None:
             )
             ax[row, col].set_title(labels[c])
             ax[row, col].set_xlabel("Pixel Intensity")
-            ax[row, col].set_ylabel("Pixel Frequency")
         plt.suptitle("RGB Grayscale Histograms")
         plt.tight_layout()
 
@@ -100,8 +165,6 @@ if uploaded_image is not None:
             )
             ax[row, col].set_title(labels[c])
             ax[row, col].set_xlabel("Pixel Intensity")
-            ax[row, col].set_ylabel("Pixel Frequency")
-        plt.suptitle("Normalized Histograms")
         plt.tight_layout()
 
         st.subheader("Normalized Histograms")
